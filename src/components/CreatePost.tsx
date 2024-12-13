@@ -7,6 +7,7 @@ const CreatePost = () => {
   const [file, setFile] = useState<File | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [isModalOpen, setIsModalOpen] = useState(false); // State to manage modal visibility
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files) {
@@ -20,40 +21,35 @@ const CreatePost = () => {
     setError('');
 
     try {
-      // Step 1: Upload the file (if any)
       let fileUrl = '';
 
       if (file) {
-        // Upload the image to Supabase Storage
         const { data, error: uploadError } = await supabase.storage
-          .from('posts') // 'posts' is the bucket name in Supabase Storage
+          .from('posts')
           .upload(`public/${file.name}`, file);
 
         if (uploadError) {
           throw new Error(uploadError.message);
         }
 
-        fileUrl = data?.path || ''; // Store the uploaded file URL
+        fileUrl = data?.path || '';
       }
 
-      // Step 2: Get the currently authenticated user using getUser()
       const { data: userData, error: userError } = await supabase.auth.getUser();
 
       if (userError || !userData) {
         throw new Error('You must be logged in to create a post.');
       }
 
-      // Get the user ID from userData.user
       const userId = userData.user.id;
 
-      // Insert the post into the 'posts' table
       const { data, error } = await supabase
         .from('posts')
         .insert([
           {
-            content: description, // Post content
-            image: fileUrl, // File URL (if uploaded)
-            author_id: userId, // Use the user ID from supabase.auth.getUser()
+            content: description,
+            image: fileUrl,
+            author_id: userId,
           },
         ]);
 
@@ -61,13 +57,12 @@ const CreatePost = () => {
         throw new Error(error.message);
       }
 
-      // Successfully posted
       console.log('Post created:', data);
 
-      // Clear form fields
       setTitle('');
       setDescription('');
       setFile(null);
+      setIsModalOpen(false); // Close the modal after submission
     } catch (err: any) {
       setError(err.message);
     } finally {
@@ -76,36 +71,60 @@ const CreatePost = () => {
   };
 
   return (
-    <form className="space-y-4" onSubmit={handleSubmit}>
-      <input
-        type="text"
-        placeholder="Title"
-        className="w-full p-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-        value={title}
-        onChange={(e) => setTitle(e.target.value)}
-      />
-      <textarea
-        placeholder="What's on your mind?"
-        className="w-full p-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-        value={description}
-        onChange={(e) => setDescription(e.target.value)}
-      ></textarea>
-      <div className="mt-4 flex justify-between">
-        <button
-          type="submit"
-          className="bg-blue-500 text-white p-2 rounded"
-          disabled={loading}
-        >
-          {loading ? 'Posting...' : 'Post'}
-        </button>
-        <input
-          type="file"
-          className="p-2 rounded"
-          onChange={handleFileChange}
-        />
+    <div className="flex justify-end w-[95%] mt-2">
+    {/* Button to Open Modal */}
+    <button
+      onClick={() => setIsModalOpen(true)}
+      className="bg-blue-500 text-white p-2 rounded"
+    >
+      Create Post
+    </button>
+  
+    {/* Modal */}
+    {isModalOpen && (
+      <div className="fixed inset-0 flex justify-center items-center bg-gray-500 bg-opacity-50 z-50">
+        <div className="bg-white p-6 rounded-lg w-100 relative"> {/* Added relative positioning here */}
+          <button
+            onClick={() => setIsModalOpen(false)}
+            className="absolute top-2 right-2 text-gray-500 hover:text-gray-700 text-2xl"
+          >
+            &times; {/* Close button */}
+          </button>
+          <form className="space-y-4 mt-4" onSubmit={handleSubmit}>
+            {/* <input
+              type="text"
+              placeholder="Title"
+              className="w-full p-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+            /> */}
+            <textarea
+              placeholder="What's in your mind?"
+              className="w-full p-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+            ></textarea>
+            <div className="mt-4 flex justify-between">
+              <button
+                type="submit"
+                className="bg-blue-500 text-white p-2 rounded"
+                disabled={loading}
+              >
+                {loading ? 'Posting...' : 'Add Post'}
+              </button>
+              <input
+                type="file"
+                className="p-2 rounded"
+                onChange={handleFileChange}
+              />
+            </div>
+            {error && <p className="text-red-500">{error}</p>}
+          </form>
+        </div>
       </div>
-      {error && <p className="text-red-500">{error}</p>}
-    </form>
+    )}
+  </div>
+  
   );
 };
 
